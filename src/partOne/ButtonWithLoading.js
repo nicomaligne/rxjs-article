@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
-import "./styles.css";
 import { ajax } from "rxjs/ajax";
 import { Subject, throwError } from "rxjs";
-import { catchError, map, switchMap, startWith } from "rxjs/operators";
+import { catchError, map, retry, switchMap, startWith } from "rxjs/operators";
 
 const PRISTINE = "PRISTINE";
 const PENDING = "PENDING";
@@ -15,7 +14,6 @@ const startWarsAPI$ = () =>
       return ajaxResponse.response;
     }),
     catchError(err => {
-      console.log("startWarsAPI failed", err);
       return throwError(err);
     })
   );
@@ -24,16 +22,19 @@ const createLazyStreamHttpGetWithPendingStatus = request$ => {
   const api$ = new Subject();
   return api$.pipe(
     switchMap(() => {
-      return request$().pipe(startWith(PENDING));
+      return request$().pipe(startWith(PENDING), retry(3));
     })
   );
 };
 
+const initialState = { status: PRISTINE };
+
 const useHttpGetWithPending = observer$ => {
-  const [data, setData] = useState({ status: PRISTINE });
+  const [data, setData] = useState(initialState);
   useEffect(() => {
     observer$.subscribe(
       result => {
+        console.log({ result });
         if (result === PENDING) {
           setData({ status: PENDING });
         } else {
@@ -45,6 +46,7 @@ const useHttpGetWithPending = observer$ => {
       },
       () => {}
     );
+    return () => observer$.unsubscribe();
   }, [observer$]);
   return [data];
 };
@@ -57,17 +59,15 @@ const Button = ({ children, className, onClick, disabled }) => {
   );
 };
 
-const NoDataAvailable = () => {
+const SWNoInfoAvailable = () => {
   return <div>No data is available</div>;
 };
 
-const DisplaySWFilmData = ({
-  title,
-  director,
-  producers,
-  releaseDate,
-  opening
-}) => {
+const SWFilmError = () => {
+  return <div>The service is not responding at the moment</div>;
+};
+
+const SWFilm = ({ title, director, producers, releaseDate, opening }) => {
   return (
     <section>
       <div>{title}</div>
@@ -79,12 +79,28 @@ const DisplaySWFilmData = ({
   );
 };
 
+const DisplaySWFilmInfos = ({ status, data }) => {
+  if (status === SUCCESS) {
+    const { title, director, producer, release_date, opening_crawl } = data;
+    return (
+      <SWFilm
+        title={title}
+        director={director}
+        producers={producer}
+        releaseDate={release_date}
+        opening={opening_crawl}
+      />
+    );
+  }
+  if (status === ERROR) {
+    return <SWFilmError />;
+  }
+  return <SWNoInfoAvailable />;
+};
+
 const ButtonWithLoading = () => {
   const clickStream$ = createLazyStreamHttpGetWithPendingStatus(startWarsAPI$);
   const [response] = useHttpGetWithPending(clickStream$);
-  if (response.status === ERROR) {
-    console.log("Do something about it", response.error);
-  }
   const onClick = () => {
     clickStream$.next();
   };
@@ -98,18 +114,7 @@ const ButtonWithLoading = () => {
       >
         Fetch Star Wars Episode One !
       </Button>
-
-      {response && response.status === SUCCESS ? (
-        <DisplaySWFilmData
-          title={response.data.title}
-          director={response.data.director}
-          producers={response.data.producer}
-          releaseDate={response.data.release_date}
-          opening={response.data.opening_crawl}
-        />
-      ) : (
-        <NoDataAvailable />
-      )}
+      <DisplaySWFilmInfos status={response.status} data={response.data} />
     </div>
   );
 };
