@@ -9,7 +9,9 @@ const SUCCESS = "SUCCESS";
 const ERROR = "ERROR";
 
 const startWarsAPI$ = () =>
-  ajax(`https://swapi.co/api/films/1/`).pipe(
+  ajax(
+    `https://www.thecocktaildb.com/api/json/v1/1/search.php?s=margarita`
+  ).pipe(
     map(ajaxResponse => {
       return ajaxResponse.response;
     }),
@@ -59,43 +61,37 @@ const Button = ({ children, className, onClick, disabled }) => {
   );
 };
 
-const SWNoInfoAvailable = () => {
+const CocktailNoInfoAvailable = () => {
   return <div>No data is available</div>;
 };
 
-const SWFilmError = () => {
+const CocktailError = () => {
   return <div>The service is not responding at the moment</div>;
 };
 
-const SWFilm = ({ title, director, producers, releaseDate, opening }) => {
-  return (
-    <section>
-      <div>{title}</div>
-      <div>Director: {director}</div>
-      <div>Producer(s): {producers}</div>
-      <div>Release date: {releaseDate}</div>
-      <p>{opening}</p>
-    </section>
-  );
+const CocktailRecipe = ({ drinks }) => {
+  return drinks.map(drink => {
+    return (
+      <section>
+        <h3>{drink.strDrink}</h3>
+        <div>glass: {drink.strGlass}</div>
+        <div>instructions: {drink.strInstructions}</div>
+        <img src={drink.strDrinkThumb} alt={drink.strDrink} />
+      </section>
+    );
+  });
 };
 
-const DisplaySWFilmInfos = ({ status, data }) => {
+const DisplayCocktailInfos = ({ status, data }) => {
+  console.log({ data });
   if (status === SUCCESS) {
-    const { title, director, producer, release_date, opening_crawl } = data;
-    return (
-      <SWFilm
-        title={title}
-        director={director}
-        producers={producer}
-        releaseDate={release_date}
-        opening={opening_crawl}
-      />
-    );
+    const { drinks } = data;
+    return <CocktailRecipe drinks={drinks} />;
   }
   if (status === ERROR) {
-    return <SWFilmError />;
+    return <CocktailError />;
   }
-  return <SWNoInfoAvailable />;
+  return <CocktailNoInfoAvailable />;
 };
 
 const ButtonWithLoading = () => {
@@ -106,15 +102,15 @@ const ButtonWithLoading = () => {
   };
   return (
     <div className="container">
-      <h1>RXJS, http call and loading feedback</h1>
+      <h1>RXJS, http get and loading feedback</h1>
       <Button
         onClick={onClick}
         disabled={response.status === PENDING}
         className="button"
       >
-        Fetch Star Wars Episode One !
+        Fetch margarita recipe !
       </Button>
-      <DisplaySWFilmInfos status={response.status} data={response.data} />
+      <DisplayCocktailInfos status={response.status} data={response.data} />
     </div>
   );
 };
